@@ -145,6 +145,10 @@ along with GCC; see the file COPYING3.  If not see
    interface between the GIMPLE and RTL worlds.  */
 #include "recog.h"
 
+#ifndef USE_SOFTWARE_INCDEC
+#define USE_SOFTWARE_INCDEC 0
+#endif
+
 /* The infinite cost.  */
 #define INFTY 10000000
 
@@ -2519,7 +2523,8 @@ add_autoinc_candidates (struct ivopts_data *data, tree base, tree step,
        && GET_MODE_SIZE (mem_mode) == cstepi)
       || ((USE_LOAD_PRE_DECREMENT (mem_mode)
 	   || USE_STORE_PRE_DECREMENT (mem_mode))
-	  && GET_MODE_SIZE (mem_mode) == -cstepi))
+	  && GET_MODE_SIZE (mem_mode) == -cstepi)
+      || USE_SOFTWARE_INCDEC)
     {
       enum tree_code code = MINUS_EXPR;
       tree new_base;
@@ -2541,7 +2546,8 @@ add_autoinc_candidates (struct ivopts_data *data, tree base, tree step,
        && GET_MODE_SIZE (mem_mode) == cstepi)
       || ((USE_LOAD_POST_DECREMENT (mem_mode)
 	   || USE_STORE_POST_DECREMENT (mem_mode))
-	  && GET_MODE_SIZE (mem_mode) == -cstepi))
+	  && GET_MODE_SIZE (mem_mode) == -cstepi)
+      || USE_SOFTWARE_INCDEC)
     {
       add_candidate_1 (data, base, step, important, IP_AFTER_USE, use,
 		       use->stmt);
@@ -3449,6 +3455,30 @@ get_address_cost (bool symbol_present, bool var_present,
 	  if (has_postinc[mem_mode])
 	    data->ainc_costs[AINC_POST_INC]
 	      = address_cost (addr, mem_mode, as, speed);
+	}
+      if (USE_SOFTWARE_INCDEC)
+	{
+	  addr = reg0;
+	  if (!has_preinc[mem_mode]) {
+	    has_preinc[mem_mode] = true;
+	    data->ainc_costs[AINC_PRE_INC]
+	      = address_cost (addr, mem_mode, as, speed) + 2;
+	  }
+	  if (!has_postinc[mem_mode]) {
+	    has_postinc[mem_mode] = true;
+	    data->ainc_costs[AINC_POST_INC]
+	      = address_cost (addr, mem_mode, as, speed) + 1;
+	  }
+	  if (!has_predec[mem_mode]) {
+	    has_predec[mem_mode] = true;
+	    data->ainc_costs[AINC_PRE_DEC]
+	      = address_cost (addr, mem_mode, as, speed) + 1;
+	  }
+	  if (!has_postdec[mem_mode]) {
+	    has_postdec[mem_mode] = true;
+	    data->ainc_costs[AINC_POST_DEC]
+	      = address_cost (addr, mem_mode, as, speed) + 2;
+	  }
 	}
       for (i = 0; i < 16; i++)
 	{
