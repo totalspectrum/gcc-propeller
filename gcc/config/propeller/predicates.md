@@ -188,7 +188,7 @@
        (match_test "propeller_stack_operand_p (op)")))
 
 ;;
-;; Next to predicates are taken from the RX machine description
+;; Next two predicates are taken from the RX machine description
 ;;
 
 ;; Return true if OP is a store multiple operation.  This looks like:
@@ -324,3 +324,21 @@
     }
   return true;
 })
+
+;; From avr.md
+;; For some insns we must ensure that no hard register is inserted
+;; into their operands because the insns are split and the split
+;; involves hard registers.  An example are divmod insn that are
+;; split to insns that represent implicit library calls.
+
+;; True for register that is pseudo register.
+(define_predicate "pseudo_register_operand"
+  (and (match_operand 0 "register_operand")
+       (not (and (match_code "reg")
+                 (match_test "HARD_REGISTER_P (op)")))))
+
+;; True for operand that is pseudo register or CONST_INT.
+(define_predicate "pseudo_register_or_const_int_operand"
+  (ior (match_operand 0 "const_int_operand")
+       (match_operand 0 "pseudo_register_operand")))
+
