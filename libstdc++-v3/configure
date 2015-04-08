@@ -14985,6 +14985,9 @@ else
 	arm*-*-symbianelf*)
 	    enable_hosted_libstdcxx=no
 	    ;;
+        propeller*)
+	    enable_hosted_libstdcxx=no
+	    ;;
 	*)
 	    enable_hosted_libstdcxx=yes
 	    ;;
@@ -27878,6 +27881,7 @@ else
 # Base decisions on target environment.
 case "${host}" in
   arm*-*-symbianelf*)
+  propeller*)
     # This is a freestanding configuration; there is nothing to do here.
     ;;
 
