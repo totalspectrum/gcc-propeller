@@ -537,10 +537,10 @@
   [(set (match_operand:SI 0 "propeller_dst_operand" "=rC")
 	(plus:SI (plus:SI
 		   (ltu:SI (reg:CC_C CC_REG)(const_int 0))
-		   (match_operand:SI 2 "propeller_src_operand" "rCI"))
-		 (match_operand:SI 1 "propeller_dst_operand" "%0")))]
+		   (match_operand:SI 1 "propeller_src_operand" "rCI"))
+		 (match_operand:SI 2 "propeller_dst_operand" "0")))]
   ""
-  "addx\\t%0, %2"
+  "addx\\t%0, %1"
   [(set_attr "conds" "use")
    (set_attr "predicable" "yes")
   ]
@@ -550,6 +550,32 @@
   [(set (match_operand:SI 0 "propeller_dst_operand" "=rC")
 	(plus:SI (ltu:SI (reg:CC_C CC_REG)(const_int 0))
 		 (match_operand:SI 1 "propeller_dst_operand" "0")))]
+  ""
+  "addx\\t%0, #0"
+  [(set_attr "conds" "use")
+   (set_attr "predicable" "yes")
+  ]
+)
+
+(define_insn "*addsi3_carryin1b"
+  [(set (match_operand:SI 0 "propeller_dst_operand" "=rC")
+	(plus:SI (plus:SI
+		   (match_operand:SI 1 "propeller_dst_operand" "0")
+		   (match_operand:SI 2 "propeller_src_operand" "rCI"))
+		   (ltu:SI (reg:CC_C CC_REG)(const_int 0)))
+     )]
+  ""
+  "addx\\t%0, %2"
+  [(set_attr "conds" "use")
+   (set_attr "predicable" "yes")
+  ]
+)
+
+(define_insn "*addsi3_carryin2b"
+  [(set (match_operand:SI 0 "propeller_dst_operand" "=rC")
+	(plus:SI (match_operand:SI 1 "propeller_dst_operand" "0")
+        (ltu:SI (reg:CC_C CC_REG)(const_int 0))
+   ))]
   ""
   "addx\\t%0, #0"
   [(set_attr "conds" "use")
@@ -591,35 +617,66 @@
   ]
 )
 
-;; 64 bit addition is done correctly with the default pattern
-;; for subtraction though the default pattern checks (x-y) > x,
-;; whereas we really want to check for x < y
 ;;
-;; temporarily disabled here
-;(define_insn_and_split "subdi3"
-;  [(set (match_operand:DI 0 "propeller_dst_operand" "=&rC")
-;        (minus:DI (match_operand:DI 1 "propeller_dst_operand" "0")
-;                  (match_operand:DI 2 "propeller_dst_operand" "rC")))]
-;  ""
-;  "#"
-;  "&& reload_completed"
-;  [(parallel
-;       [(set (reg:CCUNS CC_REG)
-;	     (compare:CCUNS (match_dup 0) (match_dup 1)))
-;	(set (match_dup 0) (minus:SI (match_dup 0) (match_dup 1)))])
-;   (set (match_dup 3)
-;            (minus:SI 
-;		  (minus:SI (match_dup 3) (match_dup 4))
-;                  (ltu:SI (reg:CC_C CC_REG) (const_int 0))))
-;  ]
-;  {
-;    operands[3] = gen_highpart (SImode, operands[0]);
-;    operands[4] = gen_highpart_mode (SImode, DImode, operands[2]);
-;    operands[0] = gen_lowpart (SImode, operands[0]);
-;    operands[1] = gen_lowpart (SImode, operands[2]);
-;  }
-;  [(set_attr "length" "8")]
-;)
+;; 64 bit arithmetic
+;;
+
+;; 64 bit add
+(define_insn_and_split "adddi3"
+  [(set (match_operand:DI          0 "propeller_dst_operand" "=&rC, &rC, &rC")
+	(plus:DI (match_operand:DI 1 "propeller_dst_operand" "%0, 0, 0");
+		 (match_operand:DI 2 "propeller_src_operand"  "rC, 0, I")))
+   (clobber (reg:CC CC_REG))]
+  ""
+  "#"
+  "reload_completed"
+  [(parallel [(set (reg:CC_C CC_REG)
+		   (compare:CC_C (plus:SI (match_dup 1) (match_dup 2))
+				 (match_dup 1)))
+	      (set (match_dup 0) (plus:SI (match_dup 1) (match_dup 2)))])
+  (set (match_dup 3) (plus:SI (plus:SI (match_dup 4) (match_dup 5))
+			       (ltu:SI (reg:CC_C CC_REG) (const_int 0))))]
+  "
+  {
+    operands[3] = gen_highpart (SImode, operands[0]);
+    operands[0] = gen_lowpart (SImode, operands[0]);
+    operands[4] = gen_highpart (SImode, operands[1]);
+    operands[1] = gen_lowpart (SImode, operands[1]);
+    operands[5] = gen_highpart_mode (SImode, DImode, operands[2]);
+    operands[2] = gen_lowpart (SImode, operands[2]);
+  }"
+  [(set_attr "conds" "clob")
+   (set_attr "length" "8")
+   (set_attr "type" "multi")]
+)
+
+
+(define_insn_and_split "subdi3"
+  [(set (match_operand:DI 0 "propeller_dst_operand" "=&rC, &rC")
+        (minus:DI (match_operand:DI 1 "propeller_dst_operand" "0, 0")
+                  (match_operand:DI 2 "propeller_dst_operand" "rC, 0")))]
+  ""
+  "#"
+  "reload_completed"
+  [(parallel
+       [(set (reg:CCUNS CC_REG)
+	     (compare:CCUNS (match_dup 0) (match_dup 1)))
+	(set (match_dup 0) (minus:SI (match_dup 0) (match_dup 1)))])
+   (set (match_dup 3)
+            (minus:SI 
+		  (minus:SI (match_dup 3) (match_dup 4))
+                  (ltu:SI (reg:CC_C CC_REG) (const_int 0))))
+  ]
+  {
+    operands[3] = gen_highpart (SImode, operands[0]);
+    operands[4] = gen_highpart_mode (SImode, DImode, operands[2]);
+    operands[0] = gen_lowpart (SImode, operands[0]);
+    operands[1] = gen_lowpart (SImode, operands[2]);
+  }
+  [(set_attr "conds" "clob")
+   (set_attr "length" "8")
+   (set_attr "type" "multi")]
+)
 
 ;; -------------------------------------------------------------------------
 ;; Unary arithmetic instructions
