@@ -566,6 +566,7 @@ sfp_machine_header
 set_use_emutls
 set_have_cc_tls
 vis_hide
+real_host_noncanonical
 accel_dir_suffix
 force_explicit_eh_registry
 fixed_point
@@ -2303,9 +2304,15 @@ case $host_os in *\ *) host_os=`echo "$host_os" | sed 's/ /-/g'`;; esac
 case "${host}" in
     # PIC is the default on some targets or must not be used.
     *-*-darwin*)
-	# PIC is the default on this platform
-	# Common symbols not allowed in MH_DYLIB files
-	PICFLAG=-fno-common
+	# For darwin, common symbols are not allowed in MH_DYLIB files
+	case "${CFLAGS}" in
+	  # If we are using a compiler supporting mdynamic-no-pic
+	  # and the option has been tested as safe to add, then cancel
+	  # it here, since the code generated is incompatible with shared
+	  # libs.
+	  *-mdynamic-no-pic*) PICFLAG='-fno-common -mno-dynamic-no-pic' ;;
+	  *) PICFLAG=-fno-common ;;
+	esac
 	;;
     alpha*-dec-osf5*)
 	# PIC is the default.
@@ -4772,15 +4779,12 @@ esac
 
 # Used for constructing correct paths for offload compilers.
 accel_dir_suffix=
+real_host_noncanonical=${host_noncanonical}
 if test x"$enable_as_accelerator_for" != x; then
   accel_dir_suffix=/accel/${target_noncanonical}
-  case "${target_noncanonical}" in
-    *-intelmicemul-*)
-      # In this case we expect offload compiler to be built as native, so we
-      # need to change install directory for driver to be able to find libgcc.
-      host_noncanonical=${enable_as_accelerator_for} ;;
-  esac
+  real_host_noncanonical=${enable_as_accelerator_for}
 fi
+
 
 
 if test x"$enable_offload_targets" != x; then

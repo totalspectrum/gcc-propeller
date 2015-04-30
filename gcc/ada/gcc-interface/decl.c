@@ -182,6 +182,7 @@ static tree gnat_to_gnu_component_type (Entity_Id, bool, bool);
 static tree gnat_to_gnu_param (Entity_Id, Mechanism_Type, Entity_Id, bool,
 			       bool *);
 static tree gnat_to_gnu_field (Entity_Id, tree, int, bool, bool);
+static bool is_from_limited_with_of_main (Entity_Id);
 static tree change_qualified_type (tree, int);
 static bool same_discriminant_p (Entity_Id, Entity_Id);
 static bool array_type_has_nonaliased_component (tree, Entity_Id);
@@ -4252,11 +4253,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	       context may now appear in parameter and result profiles.  If
 	       we are only annotating types, break circularities here.  */
 	    if (type_annotate_only
-		&& IN (Ekind (gnat_return_type), Incomplete_Kind)
-	        && From_Limited_With (gnat_return_type)
-		&& In_Extended_Main_Code_Unit
-		   (Non_Limited_View (gnat_return_type))
-		&& !present_gnu_tree (Non_Limited_View (gnat_return_type)))
+	        && is_from_limited_with_of_main (gnat_return_type))
 	      gnu_return_type = ptr_void_type_node;
 	    else
 	      gnu_return_type = gnat_to_gnu_type (gnat_return_type);
@@ -4269,8 +4266,9 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		return_by_direct_ref_p = true;
 	      }
 
-	    /* If we are supposed to return an unconstrained array type, make
-	       the actual return type the fat pointer type.  */
+	    /* If the return type is an unconstrained array type, the return
+	       value will be allocated on the secondary stack so the actual
+	       return type is the fat pointer type.  */
 	    else if (TREE_CODE (gnu_return_type) == UNCONSTRAINED_ARRAY_TYPE)
 	      {
 		gnu_return_type = TREE_TYPE (gnu_return_type);
@@ -4278,8 +4276,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	      }
 
 	    /* Likewise, if the return type requires a transient scope, the
-	       return value will be allocated on the secondary stack so the
-	       actual return type is the pointer type.  */
+	       return value will also be allocated on the secondary stack so
+	       the actual return type is the pointer type.  */
 	    else if (Requires_Transient_Scope (gnat_return_type))
 	      {
 		gnu_return_type = build_pointer_type (gnu_return_type);
@@ -4365,11 +4363,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	       context may now appear in parameter and result profiles.  If
 	       we are only annotating types, break circularities here.  */
 	    if (type_annotate_only
-		&& IN (Ekind (gnat_param_type), Incomplete_Kind)
-	        && From_Limited_With (Etype (gnat_param_type))
-		&& In_Extended_Main_Code_Unit
-		   (Non_Limited_View (gnat_param_type))
-		&& !present_gnu_tree (Non_Limited_View (gnat_param_type)))
+	        && is_from_limited_with_of_main (gnat_param_type))
 	      {
 		gnu_param_type = ptr_void_type_node;
 		fake_param_type = true;
@@ -4598,11 +4592,14 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 				 return_by_direct_ref_p,
 				 return_by_invisi_ref_p);
 
-	/* A subprogram (something that doesn't return anything) shouldn't
-	   be considered const since there would be no reason for such a
+	/* A procedure (something that doesn't return anything) shouldn't be
+	   considered const since there would be no reason for calling such a
 	   subprogram.  Note that procedures with Out (or In Out) parameters
-	   have already been converted into a function with a return type.  */
-	if (TREE_CODE (gnu_return_type) == VOID_TYPE)
+	   have already been converted into a function with a return type.
+	   Similarly, if the function returns an unconstrained type, then the
+	   function will allocate the return value on the secondary stack and
+	   thus calls to it cannot be CSE'ed, lest the stack be reclaimed.  */
+	if (TREE_CODE (gnu_return_type) == VOID_TYPE || return_unconstrained_p)
 	  const_flag = false;
 
 	if (const_flag || volatile_flag)
@@ -4800,9 +4797,11 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 
     case E_Abstract_State:
       /* This is a SPARK annotation that only reaches here when compiling in
-	 ASIS mode and has no characteristics to annotate.  */
+	 ASIS mode.  */
       gcc_assert (type_annotate_only);
-      return error_mark_node;
+      gnu_decl = error_mark_node;
+      saved = true;
+      break;
 
     default:
       gcc_unreachable ();
@@ -5806,6 +5805,30 @@ gnat_to_gnu_param (Entity_Id gnat_param, Mechanism_Type mech,
 
   Set_Mechanism (gnat_param, mech);
   return gnu_param;
+}
+
+/* Return true if GNAT_ENTITY is an incomplete entity coming from a limited
+   with of the main unit and whose full view has not been elaborated yet.  */
+
+static bool
+is_from_limited_with_of_main (Entity_Id gnat_entity)
+{
+  /* Class-wide types are always transformed into their root type.  */
+  if (Ekind (gnat_entity) == E_Class_Wide_Type)
+    gnat_entity = Root_Type (gnat_entity);
+
+  if (IN (Ekind (gnat_entity), Incomplete_Kind)
+      && From_Limited_With (gnat_entity))
+    {
+      Entity_Id gnat_full_view = Non_Limited_View (gnat_entity);
+
+      if (present_gnu_tree (gnat_full_view))
+	return false;
+
+      return In_Extended_Main_Code_Unit (gnat_full_view);
+    }
+
+  return false;
 }
 
 /* Like build_qualified_type, but TYPE_QUALS is added to the existing

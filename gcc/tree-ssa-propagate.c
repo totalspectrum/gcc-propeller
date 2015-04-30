@@ -67,6 +67,7 @@
 #include "value-prof.h"
 #include "domwalk.h"
 #include "cfgloop.h"
+#include "tree-cfgcleanup.h"
 
 /* This file implements a generic value propagation engine based on
    the same propagation used by the SSA-CCP algorithm [1].
@@ -365,6 +366,7 @@ simulate_stmt (gimple stmt)
 	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    add_control_edge (e);
 	}
+      return;
     }
   else if (val == SSA_PROP_INTERESTING)
     {
@@ -377,6 +379,45 @@ simulate_stmt (gimple stmt)
 	 add it to the CFG work list.  */
       if (taken_edge)
 	add_control_edge (taken_edge);
+    }
+
+  /* If there are no SSA uses on the stmt whose defs are simulated
+     again then this stmt will be never visited again.  */
+  bool has_simulate_again_uses = false;
+  use_operand_p use_p;
+  ssa_op_iter iter;
+  if (gimple_code  (stmt) == GIMPLE_PHI)
+    {
+      edge_iterator ei;
+      edge e;
+      tree arg;
+      FOR_EACH_EDGE (e, ei, gimple_bb (stmt)->preds)
+	if (!(e->flags & EDGE_EXECUTABLE)
+	    || ((arg = PHI_ARG_DEF_FROM_EDGE (stmt, e))
+		&& TREE_CODE (arg) == SSA_NAME
+		&& !SSA_NAME_IS_DEFAULT_DEF (arg)
+		&& prop_simulate_again_p (SSA_NAME_DEF_STMT (arg))))
+	  {
+	    has_simulate_again_uses = true;
+	    break;
+	  }
+    }
+  else
+    FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
+      {
+	gimple def_stmt = SSA_NAME_DEF_STMT (USE_FROM_PTR (use_p));
+	if (!gimple_nop_p (def_stmt)
+	    && prop_simulate_again_p (def_stmt))
+	  {
+	    has_simulate_again_uses = true;
+	    break;
+	  }
+      }
+  if (!has_simulate_again_uses)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "marking stmt to be not simulated again\n");
+      prop_set_simulate_again (stmt, false);
     }
 }
 
@@ -1071,11 +1112,13 @@ public:
       fold_fn (fold_fn_), do_dce (do_dce_), something_changed (false)
     {
       stmts_to_remove.create (0);
+      stmts_to_fixup.create (0);
       need_eh_cleanup = BITMAP_ALLOC (NULL);
     }
     ~substitute_and_fold_dom_walker ()
     {
       stmts_to_remove.release ();
+      stmts_to_fixup.release ();
       BITMAP_FREE (need_eh_cleanup);
     }
 
@@ -1087,6 +1130,7 @@ public:
     bool do_dce;
     bool something_changed;
     vec<gimple> stmts_to_remove;
+    vec<gimple> stmts_to_fixup;
     bitmap need_eh_cleanup;
 };
 
@@ -1125,7 +1169,6 @@ substitute_and_fold_dom_walker::before_dom_children (basic_block bb)
     {
       bool did_replace;
       gimple stmt = gsi_stmt (i);
-      gimple old_stmt;
       enum gimple_code code = gimple_code (stmt);
 
       /* Ignore ASSERT_EXPRs.  They are used by VRP to generate
@@ -1163,7 +1206,9 @@ substitute_and_fold_dom_walker::before_dom_children (basic_block bb)
 	  print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
 	}
 
-      old_stmt = stmt;
+      gimple old_stmt = stmt;
+      bool was_noreturn = (is_gimple_call (stmt)
+			   && gimple_call_noreturn_p (stmt));
 
       /* Some statements may be simplified using propagator
 	 specific information.  Do this before propagating
@@ -1193,6 +1238,13 @@ substitute_and_fold_dom_walker::before_dom_children (basic_block bb)
 	     remove EH edges.  */
 	  if (maybe_clean_or_replace_eh_stmt (old_stmt, stmt))
 	    bitmap_set_bit (need_eh_cleanup, bb->index);
+
+	  /* If we turned a not noreturn call into a noreturn one
+	     schedule it for fixup.  */
+	  if (!was_noreturn
+	      && is_gimple_call (stmt)
+	      && gimple_call_noreturn_p (stmt))
+	    stmts_to_fixup.safe_push (stmt);
 
 	  if (is_gimple_assign (stmt)
 	      && (get_gimple_rhs_class (gimple_assign_rhs_code (stmt))
@@ -1285,6 +1337,22 @@ substitute_and_fold (ssa_prop_get_value_fn get_value_fn,
 
   if (!bitmap_empty_p (walker.need_eh_cleanup))
     gimple_purge_all_dead_eh_edges (walker.need_eh_cleanup);
+
+  /* Fixup stmts that became noreturn calls.  This may require splitting
+     blocks and thus isn't possible during the dominator walk.  Do this
+     in reverse order so we don't inadvertedly remove a stmt we want to
+     fixup by visiting a dominating now noreturn call first.  */
+  while (!walker.stmts_to_fixup.is_empty ())
+    {
+      gimple stmt = walker.stmts_to_fixup.pop ();
+      if (dump_file && dump_flags & TDF_DETAILS)
+	{
+	  fprintf (dump_file, "Fixing up noreturn call ");
+	  print_gimple_stmt (dump_file, stmt, 0, 0);
+	  fprintf (dump_file, "\n");
+	}
+      fixup_noreturn_call (stmt);
+    }
 
   statistics_counter_event (cfun, "Constants propagated",
 			    prop_stats.num_const_prop);

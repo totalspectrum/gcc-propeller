@@ -162,6 +162,7 @@ target_libraries="target-libgcc \
 		target-libstdc++-v3 \
 		target-libsanitizer \
 		target-libvtv \
+		target-libmpx \
 		target-libssp \
 		target-libquadmath \
 		target-libgfortran \
@@ -639,6 +640,27 @@ if test -d ${srcdir}/libvtv; then
 	fi
     fi
 fi
+
+
+# Enable libmpx on supported systems by request.
+if test -d ${srcdir}/libmpx; then
+    if test x$enable_libmpx = xyes; then
+       AC_MSG_CHECKING([for libmpx support])
+       if (srcdir=${srcdir}/libmpx; \
+               . ${srcdir}/configure.tgt; \
+               test "$LIBMPX_SUPPORTED" != "yes")
+       then
+           AC_MSG_RESULT([no])
+           noconfigdirs="$noconfigdirs target-libmpx"
+       else
+           AC_MSG_RESULT([yes])
+       fi
+    else
+       noconfigdirs="$noconfigdirs target-libmpx"
+    fi
+fi
+
+
 
 # Disable libquadmath for some systems.
 case "${target}" in
@@ -1274,6 +1296,9 @@ case "${host}" in
     ;;
   *-mingw*)
     host_makefile_frag="config/mh-mingw"
+    ;;
+  alpha*-*-linux*)
+    host_makefile_frag="config/mh-alpha-linux"
     ;;
   hppa*-hp-hpux10*)
     host_makefile_frag="config/mh-pa-hpux10"
@@ -2319,28 +2344,36 @@ AC_SUBST(DEBUG_PREFIX_CFLAGS_FOR_TARGET)
 # gcc) are built with "-O2 -g", so include those options when setting
 # CFLAGS_FOR_TARGET and CXXFLAGS_FOR_TARGET.
 if test "x$CFLAGS_FOR_TARGET" = x; then
-  CFLAGS_FOR_TARGET=$CFLAGS
-  case " $CFLAGS " in
-    *" -O2 "*) ;;
-    *) CFLAGS_FOR_TARGET="-O2 $CFLAGS_FOR_TARGET" ;;
-  esac
-  case " $CFLAGS " in
-    *" -g "* | *" -g3 "*) ;;
-    *) CFLAGS_FOR_TARGET="-g $CFLAGS_FOR_TARGET" ;;
-  esac
+  if test "x${is_cross_compiler}" = xyes; then
+    CFLAGS_FOR_TARGET="-g -O2"
+  else
+    CFLAGS_FOR_TARGET=$CFLAGS
+    case " $CFLAGS " in
+      *" -O2 "*) ;;
+      *) CFLAGS_FOR_TARGET="-O2 $CFLAGS_FOR_TARGET" ;;
+    esac
+    case " $CFLAGS " in
+      *" -g "* | *" -g3 "*) ;;
+      *) CFLAGS_FOR_TARGET="-g $CFLAGS_FOR_TARGET" ;;
+    esac
+  fi
 fi
 AC_SUBST(CFLAGS_FOR_TARGET)
 
 if test "x$CXXFLAGS_FOR_TARGET" = x; then
-  CXXFLAGS_FOR_TARGET=$CXXFLAGS
-  case " $CXXFLAGS " in
-    *" -O2 "*) ;;
-    *) CXXFLAGS_FOR_TARGET="-O2 $CXXFLAGS_FOR_TARGET" ;;
-  esac
-  case " $CXXFLAGS " in
-    *" -g "* | *" -g3 "*) ;;
-    *) CXXFLAGS_FOR_TARGET="-g $CXXFLAGS_FOR_TARGET" ;;
-  esac
+  if test "x${is_cross_compiler}" = xyes; then
+    CXXFLAGS_FOR_TARGET="-g -O2"
+  else
+    CXXFLAGS_FOR_TARGET=$CXXFLAGS
+    case " $CXXFLAGS " in
+      *" -O2 "*) ;;
+      *) CXXFLAGS_FOR_TARGET="-O2 $CXXFLAGS_FOR_TARGET" ;;
+    esac
+    case " $CXXFLAGS " in
+      *" -g "* | *" -g3 "*) ;;
+      *) CXXFLAGS_FOR_TARGET="-g $CXXFLAGS_FOR_TARGET" ;;
+    esac
+  fi
 fi
 AC_SUBST(CXXFLAGS_FOR_TARGET)
 
@@ -2670,6 +2703,11 @@ fi
 if echo " ${target_configdirs} " | grep " libvtv " > /dev/null 2>&1 &&
    test "$enable_vtable_verify" != no; then
   bootstrap_target_libs=${bootstrap_target_libs}target-libvtv,
+fi
+
+# If we are building libmpx, bootstrap it.
+if echo " ${target_configdirs} " | grep " libmpx " > /dev/null 2>&1; then
+  bootstrap_target_libs=${bootstrap_target_libs}target-libmpx,
 fi
 
 # Determine whether gdb needs tk/tcl or not.
@@ -3444,7 +3482,19 @@ AC_ARG_ENABLE(stage1-checking,
 		[choose additional checking for stage1 of the compiler])],
 [stage1_checking=--enable-checking=${enable_stage1_checking}],
 [if test "x$enable_checking" = xno || test "x$enable_checking" = x; then
-  stage1_checking=--enable-checking=yes,types
+  # For --disable-checking or implicit --enable-checking=release, avoid
+  # setting --enable-checking=gc in the default stage1 checking for LTO
+  # bootstraps.  See PR62077.
+  stage1_checking=--enable-checking=release,misc,gimple,rtlflag,tree,types
+  case $BUILD_CONFIG in
+    *lto*)
+      if test "x$enable_checking" = x && \
+	 test -d ${srcdir}/gcc && \
+	 test x"`cat ${srcdir}/gcc/DEV-PHASE`" = xexperimental; then
+	stage1_checking=--enable-checking=yes,types
+      fi;;
+    *) stage1_checking=--enable-checking=yes,types;;
+  esac
 else
   stage1_checking=--enable-checking=$enable_checking,types
 fi])

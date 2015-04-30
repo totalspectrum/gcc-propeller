@@ -2498,6 +2498,60 @@ $as_echo "$ac_res" >&6; }
   eval $as_lineno_stack; test "x$as_lineno_stack" = x && { as_lineno=; unset as_lineno;}
 
 } # ac_fn_c_check_type
+
+# ac_fn_cxx_check_type LINENO TYPE VAR INCLUDES
+# ---------------------------------------------
+# Tests whether TYPE exists after having included INCLUDES, setting cache
+# variable VAR accordingly.
+ac_fn_cxx_check_type ()
+{
+  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $2" >&5
+$as_echo_n "checking for $2... " >&6; }
+if { as_var=$3; eval "test \"\${$as_var+set}\" = set"; }; then :
+  $as_echo_n "(cached) " >&6
+else
+  eval "$3=no"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+$4
+int
+main ()
+{
+if (sizeof ($2))
+	 return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"; then :
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+$4
+int
+main ()
+{
+if (sizeof (($2)))
+	    return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"; then :
+
+else
+  eval "$3=yes"
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+eval ac_res=\$$3
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+  eval $as_lineno_stack; test "x$as_lineno_stack" = x && { as_lineno=; unset as_lineno;}
+
+} # ac_fn_cxx_check_type
 cat >config.log <<_ACEOF
 This file contains any messages produced by compilers while
 running configure, to aid debugging if configure makes a mistake.
@@ -4897,7 +4951,7 @@ $as_echo "$ac_cv_path_EGREP" >&6; }
   # expandable list at autoconf time; the second provides an expandable list
   # (i.e., shell variable) at configure time.
 
-  SUBDIRS='include libsupc++ python src src/c++98 src/c++11 doc po testsuite'
+  SUBDIRS='include libsupc++ src src/c++98 src/c++11 doc po testsuite python'
 
   # These need to be absolute paths, yet at the same time need to
   # canonicalize only relative paths, because then amd will not unmount
@@ -11539,7 +11593,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11542 "configure"
+#line 11596 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -11645,7 +11699,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11648 "configure"
+#line 11702 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -15068,7 +15122,7 @@ fi
     #
     # Fake what AC_TRY_COMPILE does.  XXX Look at redoing this new-style.
     cat > conftest.$ac_ext << EOF
-#line 15068 "configure"
+#line 15122 "configure"
 struct S { ~S(); };
 void bar();
 void foo()
@@ -15420,7 +15474,7 @@ $as_echo "$glibcxx_cv_atomic_long_long" >&6; }
   # Fake what AC_TRY_COMPILE does.
 
     cat > conftest.$ac_ext << EOF
-#line 15420 "configure"
+#line 15474 "configure"
 int main()
 {
   typedef bool atomic_type;
@@ -15455,7 +15509,7 @@ $as_echo "$glibcxx_cv_atomic_bool" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15455 "configure"
+#line 15509 "configure"
 int main()
 {
   typedef short atomic_type;
@@ -15490,7 +15544,7 @@ $as_echo "$glibcxx_cv_atomic_short" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15490 "configure"
+#line 15544 "configure"
 int main()
 {
   // NB: _Atomic_word not necessarily int.
@@ -15526,7 +15580,7 @@ $as_echo "$glibcxx_cv_atomic_int" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15526 "configure"
+#line 15580 "configure"
 int main()
 {
   typedef long long atomic_type;
@@ -15605,7 +15659,7 @@ $as_echo "$as_me: WARNING: Performance of certain classes will degrade as a resu
   # unnecessary for this test.
 
     cat > conftest.$ac_ext << EOF
-#line 15605 "configure"
+#line 15659 "configure"
 int main()
 {
   _Decimal32 d1;
@@ -15647,7 +15701,7 @@ ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
   # unnecessary for this test.
 
     cat > conftest.$ac_ext << EOF
-#line 15647 "configure"
+#line 15701 "configure"
 template<typename T1, typename T2>
   struct same
   { typedef T2 type; };
@@ -15681,7 +15735,7 @@ $as_echo "$enable_int128" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15681 "configure"
+#line 15735 "configure"
 template<typename T1, typename T2>
   struct same
   { typedef T2 type; };
@@ -19554,7 +19608,7 @@ $as_echo "$glibcxx_glibc217" >&6; }
         ac_has_nanosleep=yes
         ac_has_sched_yield=yes
         ;;
-      freebsd*|netbsd*)
+      freebsd*|netbsd*|dragonfly*)
         ac_has_clock_monotonic=yes
         ac_has_clock_realtime=yes
         ac_has_nanosleep=yes
@@ -77978,7 +78032,7 @@ $as_echo "$as_me: WARNING: === Symbol versioning will be disabled." >&2;}
 fi
 
 # For libtool versioning info, format is CURRENT:REVISION:AGE
-libtool_VERSION=6:21:0
+libtool_VERSION=6:22:0
 
 # Everything parsed; figure out what files and settings to use.
 case $enable_symvers in
@@ -78210,6 +78264,10 @@ else
 fi
 
 
+  if test x$enable_symvers = xgnu-versioned-namespace; then
+    # gnu-versioned-namespace is incompatible with the dual ABI.
+    enable_libstdcxx_dual_abi="no"
+  fi
   if test x"$enable_libstdcxx_dual_abi" != xyes; then
     { $as_echo "$as_me:${as_lineno-$LINENO}: dual ABI is disabled" >&5
 $as_echo "$as_me: dual ABI is disabled" >&6;}
@@ -78791,6 +78849,16 @@ $as_echo "$ac_has_gthreads" >&6; }
   if test x"$ac_has_gthreads" = x"yes"; then
 
 $as_echo "#define _GLIBCXX_HAS_GTHREADS 1" >>confdefs.h
+
+
+    # Also check for pthread_rwlock_t for std::shared_timed_mutex in C++14
+    ac_fn_cxx_check_type "$LINENO" "pthread_rwlock_t" "ac_cv_type_pthread_rwlock_t" "#include \"gthr.h\"
+"
+if test "x$ac_cv_type_pthread_rwlock_t" = x""yes; then :
+
+$as_echo "#define _GLIBCXX_USE_PTHREAD_RWLOCK_T 1" >>confdefs.h
+
+fi
 
   fi
 
@@ -79651,7 +79719,7 @@ ac_config_files="$ac_config_files doc/xsl/customization.xsl"
 # append it here.  Only modify Makefiles that have just been created.
 #
 # Also, get rid of this simulated-VPATH thing that automake does.
-ac_config_files="$ac_config_files include/Makefile libsupc++/Makefile python/Makefile src/Makefile src/c++98/Makefile src/c++11/Makefile doc/Makefile po/Makefile testsuite/Makefile"
+ac_config_files="$ac_config_files include/Makefile libsupc++/Makefile src/Makefile src/c++98/Makefile src/c++11/Makefile doc/Makefile po/Makefile testsuite/Makefile python/Makefile"
 
 
 ac_config_commands="$ac_config_commands generate-headers"
@@ -80868,13 +80936,13 @@ do
     "doc/xsl/customization.xsl") CONFIG_FILES="$CONFIG_FILES doc/xsl/customization.xsl" ;;
     "include/Makefile") CONFIG_FILES="$CONFIG_FILES include/Makefile" ;;
     "libsupc++/Makefile") CONFIG_FILES="$CONFIG_FILES libsupc++/Makefile" ;;
-    "python/Makefile") CONFIG_FILES="$CONFIG_FILES python/Makefile" ;;
     "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
     "src/c++98/Makefile") CONFIG_FILES="$CONFIG_FILES src/c++98/Makefile" ;;
     "src/c++11/Makefile") CONFIG_FILES="$CONFIG_FILES src/c++11/Makefile" ;;
     "doc/Makefile") CONFIG_FILES="$CONFIG_FILES doc/Makefile" ;;
     "po/Makefile") CONFIG_FILES="$CONFIG_FILES po/Makefile" ;;
     "testsuite/Makefile") CONFIG_FILES="$CONFIG_FILES testsuite/Makefile" ;;
+    "python/Makefile") CONFIG_FILES="$CONFIG_FILES python/Makefile" ;;
     "generate-headers") CONFIG_COMMANDS="$CONFIG_COMMANDS generate-headers" ;;
 
   *) as_fn_error "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
@@ -82674,17 +82742,6 @@ _EOF
    . ${multi_basedir}/config-ml.in
    { ml_norecursion=; unset ml_norecursion;}
  ;;
-    "python/Makefile":F) cat > vpsed$$ << \_EOF
-s!`test -f '$<' || echo '$(srcdir)/'`!!
-_EOF
-   sed -f vpsed$$ $ac_file > tmp$$
-   mv tmp$$ $ac_file
-   rm vpsed$$
-   echo 'MULTISUBDIR =' >> $ac_file
-   ml_norecursion=yes
-   . ${multi_basedir}/config-ml.in
-   { ml_norecursion=; unset ml_norecursion;}
- ;;
     "src/Makefile":F) cat > vpsed$$ << \_EOF
 s!`test -f '$<' || echo '$(srcdir)/'`!!
 _EOF
@@ -82741,6 +82798,17 @@ _EOF
    { ml_norecursion=; unset ml_norecursion;}
  ;;
     "testsuite/Makefile":F) cat > vpsed$$ << \_EOF
+s!`test -f '$<' || echo '$(srcdir)/'`!!
+_EOF
+   sed -f vpsed$$ $ac_file > tmp$$
+   mv tmp$$ $ac_file
+   rm vpsed$$
+   echo 'MULTISUBDIR =' >> $ac_file
+   ml_norecursion=yes
+   . ${multi_basedir}/config-ml.in
+   { ml_norecursion=; unset ml_norecursion;}
+ ;;
+    "python/Makefile":F) cat > vpsed$$ << \_EOF
 s!`test -f '$<' || echo '$(srcdir)/'`!!
 _EOF
    sed -f vpsed$$ $ac_file > tmp$$
