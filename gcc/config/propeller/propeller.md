@@ -760,7 +760,7 @@
   ""
 {
   propeller_need_maskffffffff = true; /* make sure we generate the FFFFFFFF */
-  return "xor\t%0,__MASK_FFFFFFFF";
+  return "xor\t%0,__MASK_FFFFFFFF wz";
 })
 
 ;; -------------------------------------------------------------------------
@@ -1076,6 +1076,8 @@
 ;; -------------------------------------------------------------------------
 ;; Move instructions
 ;; -------------------------------------------------------------------------
+
+;; DImode
 
 ;; SImode
 
