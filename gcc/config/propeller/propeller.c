@@ -1312,7 +1312,7 @@ propeller_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED, int opno 
 
 static int
 propeller_address_cost (rtx addr, enum machine_mode mode ATTRIBUTE_UNUSED,
-			addr_space_t as ATTRIBUTE_UNUSED, bool speed)
+			addr_space_t as ATTRIBUTE_UNUSED, bool speed ATTRIBUTE_UNUSED)
 {
 #if 0
   int cost = 4;
@@ -1324,7 +1324,6 @@ propeller_address_cost (rtx addr, enum machine_mode mode ATTRIBUTE_UNUSED,
   return cost;
 #else
   int total;
-  rtx a, b;
 
   switch (GET_CODE (addr)) {
   case REG:
@@ -1810,6 +1809,105 @@ propeller_emit_stack_popm (rtx * operands, int doret)
                    popfunc);
       if (doret)
         asm_fprintf (asm_out_file, "\t'' never returns\n");
+    }
+}
+
+/* split a 64 bit move into 32 bit moves */
+void
+propeller_split_64bit_move (rtx dest, rtx src, enum machine_mode mode)
+{
+  if (propeller_cogreg_operand (dest, mode) && propeller_cogreg_operand(src, mode))
+    {
+      /* register to register copy */
+      /* usually do mov d0, s0 ; mov d1, s1 */
+      /* exception: if d0 == s1 we have to do it in the other order */
+      rtx srclo, srchi;
+      rtx destlo, desthi;
+
+      srclo = gen_lowpart (SImode, src);
+      srchi = gen_highpart (SImode, src);
+      destlo = gen_lowpart (SImode, dest);
+      desthi = gen_highpart (SImode, dest);
+
+      if (REG_P (srchi) && REG_P (destlo) && true_regnum (srchi) == true_regnum (destlo)) {
+	emit_move_insn (desthi, srchi);
+	emit_move_insn (destlo, srclo);
+      } else {
+	emit_move_insn (destlo, srclo);
+	emit_move_insn (desthi, srchi);
+      }
+    }
+  else if (GET_CODE (dest) == MEM)
+    {
+      rtx destaddr, destindirect;
+      rtx srclo, srchi;
+      
+      /* store a 64 bit quantity:
+	 store64 r2, (r0) -> wrlong r2,r0 ; add r0,#4 ; wrlong r3,r0; sub r0,#4
+	 watch out for 1 special case, where the src and dest overlap
+	 store64 r0, (r1)
+	 for that, do: wrlong r0, (r1) ; mv_s r0,r1; add r0,#4; wrlong r1,r0; rdlong r0,r1
+      */
+      gcc_assert (REG_P (src));
+
+      srclo = gen_lowpart (SImode, src);
+      srchi = gen_highpart (SImode, src);
+      destaddr = XEXP (dest, 0);
+      gcc_assert (REG_P (destaddr)); /* must be simple indirection */
+      destindirect = gen_rtx_MEM (SImode, destaddr);
+      if (true_regnum (destaddr) == true_regnum (srchi)) {
+	gcc_assert (0); /* case not handled yet */
+      } else {
+	emit_move_insn (destindirect, srclo);
+	emit_insn (gen_addsi3 (destaddr, destaddr, GEN_INT(4)));
+	emit_move_insn (destindirect, srchi);
+	emit_insn (gen_addsi3 (destaddr, destaddr, GEN_INT(-4)));
+      }
+    }
+  else if (GET_CODE (src) == MEM)
+    {
+      /* 64 bit load:
+	 load64 r0, (r3) -> rdlong r0, (r3) ; add r3, #4; rdlong r1, (r3); sub r3, #4 (only if r1 != r3!!!)
+	 but watch out for:
+	 load64 r0, (r0) -> add r0, #4; rdlong r1, (r0); sub r0, #4; rdlong r0, (r0)
+      */
+      rtx srcreg, srcindirect;
+      rtx destlo, desthi;
+      
+      gcc_assert (REG_P (dest));
+
+      destlo = gen_lowpart (SImode, dest);
+      desthi = gen_highpart (SImode, dest);
+      srcreg = XEXP (src, 0);
+      if (!REG_P (srcreg))
+	{
+	  print_rtl_single (stderr, src);
+	  gcc_assert (REG_P (srcreg));
+	}
+      srcindirect = gen_rtx_MEM (SImode, srcreg);
+
+      if (true_regnum (srcreg) == true_regnum (destlo)) {
+	emit_insn (gen_addsi3 (srcreg, srcreg, GEN_INT(4)));
+	emit_move_insn (desthi, srcindirect);
+	emit_insn (gen_addsi3 (srcreg, srcreg, GEN_INT(-4)));
+	emit_move_insn (destlo, srcindirect);
+      } else {
+	emit_move_insn (destlo, srcindirect);
+	emit_insn (gen_addsi3 (srcreg, srcreg, GEN_INT(4)));
+	emit_move_insn (desthi, srcindirect);
+	if (true_regnum (srcreg) != true_regnum (desthi)) {
+	  emit_insn (gen_addsi3 (srcreg, srcreg, GEN_INT(-4)));
+	}
+      }
+    }
+  else
+    {
+      /* don't know how to handle this */
+      fprintf(stderr, "\n src=");
+      print_rtl_single (stderr, src);
+      fprintf(stderr, "\n dest=");
+      print_rtl_single (stderr, dest);
+      gcc_unreachable ();
     }
 }
 
@@ -2309,6 +2407,7 @@ propeller_legitimate_constant_p (enum machine_mode mode ATTRIBUTE_UNUSED, rtx x)
     case LABEL_REF:
       return true;
     case CONST_DOUBLE:
+      if (TARGET_LMM) return true;
       if (GET_MODE (x) == VOIDmode)
         return true;
       return false;

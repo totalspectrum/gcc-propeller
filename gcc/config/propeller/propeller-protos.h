@@ -70,6 +70,7 @@ extern bool propeller_forward_branch_p (rtx);
 extern void propeller_emit_stack_pushm (rtx *operands);
 extern void propeller_emit_stack_popm (rtx *operands, int doretaswell);
 
+extern void propeller_split_64bit_move (rtx dest, rtx src, enum machine_mode mode);
 extern int propeller_reg_dead_peep (const rtx_insn* first, rtx reg);
 
 /* some variable declarations; we put them here rather than in propeller.h

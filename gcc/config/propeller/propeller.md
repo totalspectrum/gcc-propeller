@@ -1,4 +1,5 @@
 ;; Machine description for Propeller
+;; Copyright (C) 2015 Total Spectrum Software Inc.
 ;; Copyright (C) 2011 Parallax, Inc.
 ;; Copyright (C) 2009 Free Software Foundation, Inc.
 ;; Contributed by Eric R. Smith <ersmith@totalspectrum.ca>
@@ -1078,6 +1079,81 @@
 ;; -------------------------------------------------------------------------
 
 ;; DImode
+;;(define_mode_iterator DWMODE [DI DF])
+
+(define_expand "movdi"
+   [(set (match_operand:DI 0 "nonimmediate_operand" "")
+ 	(match_operand:DI 1 "general_operand" ""))]
+   ""
+{
+  if (!propeller_cogreg_operand (operands[0], DImode)
+      && !propeller_cogreg_operand (operands[1], DImode))
+    {
+      operands[1] = force_reg (DImode, operands[1]);
+    }
+  else if (GET_CODE (operands[1]) == CONST_INT)
+  {
+      int i;
+      for (i = 0; i < UNITS_PER_WORD * 2; i += UNITS_PER_WORD)
+        emit_move_insn (simplify_gen_subreg (SImode, operands[0], DImode, i),
+		        simplify_gen_subreg (SImode, operands[1], DImode, i));
+      DONE;
+  }
+})
+
+(define_expand "movdf"
+   [(set (match_operand:DI 0 "nonimmediate_operand" "")
+ 	(match_operand:DI 1 "general_operand" ""))]
+   ""
+{
+  if (!propeller_cogreg_operand (operands[0], DFmode)
+      && !propeller_cogreg_operand (operands[1], DFmode))
+    {
+      operands[1] = force_reg (DFmode, operands[1]);
+    }
+  else if (GET_CODE (operands[1]) == CONST_DOUBLE)
+  {
+      int i;
+      for (i = 0; i < UNITS_PER_WORD * 2; i += UNITS_PER_WORD)
+        emit_move_insn (simplify_gen_subreg (SImode, operands[0], DFmode, i),
+		        simplify_gen_subreg (SImode, operands[1], DFmode, i));
+      DONE;
+  }
+})
+
+(define_insn_and_split "*movdi_internal"
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=rC,r,m")
+        (match_operand:DI 1 "general_operand"       "rC,m,r"))
+  ]
+  ""
+  "#"
+  "reload_completed"
+  [(const_int 0)]
+{
+  propeller_split_64bit_move (operands[0], operands[1], DImode);
+  DONE;
+}
+[(set_attr "type" "multi")
+ (set_attr "length" "8,16,16")
+]
+)
+
+(define_insn_and_split "*movdf_internal"
+  [(set (match_operand:DF 0 "nonimmediate_operand" "=rC,r,m")
+        (match_operand:DF 1 "general_operand"       "rC,m,r"))
+  ]
+  ""
+  "#"
+  "reload_completed"
+  [(const_int 0)]
+{
+  propeller_split_64bit_move (operands[0], operands[1], DFmode);
+  DONE;
+}
+[(set_attr "type" "multi")
+ (set_attr "length" "8,16,16")
+]
+)
 
 ;; SImode
 
@@ -1836,6 +1912,30 @@
   [(set_attr "conds" "set")]
 )
 
+
+(define_insn "cmpdi_signed"
+  [(set (reg:CC CC_REG)
+	(compare:CC
+	 (match_operand:DI 0 "propeller_dst_operand" "rC")
+	 (match_operand:DI 1 "propeller_src_operand"	"rCI")))]
+  ""
+  "cmp\t%Q0, %Q1 wz,wc\n    cmpsx\t%R0, %R1"
+  [(set_attr "length" "8")
+   (set_attr "type" "multi")
+   (set_attr "conds" "set")]
+)
+
+(define_insn "cmpdi_unsigned"
+  [(set (reg:CCUNS CC_REG)
+	(compare:CCUNS
+	 (match_operand:DI 0 "propeller_dst_operand" "rC")
+	 (match_operand:DI 1 "propeller_src_operand"	"rCI")))]
+  ""
+  "cmp\t%Q0, %Q1 wz,wc\n    cmpx\t%R0, %R1"
+  [(set_attr "length" "8")
+   (set_attr "type" "multi")
+   (set_attr "conds" "set")]
+)
 
 ;; -------------------------------------------------------------------------
 ;; Branch instructions
