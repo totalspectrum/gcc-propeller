@@ -954,6 +954,12 @@ propeller_print_operand_punctuation (FILE *file, int ch)
 
 #define PREDLETTER(YES, REV)  (letter == 'p') ? (YES) : (REV)
 
+static void
+propeller_print_reg (FILE *file, int regnum)
+{
+      fprintf (file, "%s", reg_names[regnum]);
+}
+
 void
 propeller_print_operand (FILE * file, rtx op, int letter)
 {
@@ -1057,7 +1063,7 @@ propeller_print_operand (FILE * file, rtx op, int letter)
 	  return;
 	}
 
-      asm_fprintf (file, "%r", REGNO (op));
+      propeller_print_reg (file, REGNO (op));
       return;
   }
   if (letter == 'R') {
@@ -1079,7 +1085,7 @@ propeller_print_operand (FILE * file, rtx op, int letter)
 	  return;
 	}
 
-      asm_fprintf (file, "%r", REGNO (op) + 1);
+      propeller_print_reg (file, REGNO (op) + 1);
       return;
   }
 
@@ -1094,7 +1100,7 @@ propeller_print_operand (FILE * file, rtx op, int letter)
       else
         regnum = true_regnum (op);
 
-      fprintf (file, "%s", reg_names[regnum]);
+      propeller_print_reg (file, regnum);
     }
   else if (code == HIGH)
     output_addr_const (file, XEXP (op, 0));  
@@ -1482,8 +1488,23 @@ propeller_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
 /* SELECT_CC_MODE.  */
 
 enum machine_mode
-propeller_select_cc_mode (RTX_CODE op, rtx x ATTRIBUTE_UNUSED, rtx y ATTRIBUTE_UNUSED)
+propeller_select_cc_mode (RTX_CODE op, rtx x, rtx y)
 {
+  enum machine_mode modex = GET_MODE(x);
+  enum machine_mode modey = GET_MODE(y);
+  if (modex == DImode || modey == DImode)
+    {
+      switch (op)
+	{
+	case LTU:
+	case GEU:
+	case GTU:
+	case LEU:
+	  return CCUNSmode;
+	default:
+	  return CCmode;
+	}
+    }
   if (op == EQ || op == NE)
     return CC_Zmode;
   /* for unsigned ltu and geu only the carry matters */

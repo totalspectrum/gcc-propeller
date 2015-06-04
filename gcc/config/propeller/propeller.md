@@ -1919,7 +1919,7 @@
 	 (match_operand:DI 0 "propeller_dst_operand" "rC")
 	 (match_operand:DI 1 "propeller_src_operand"	"rCI")))]
   ""
-  "cmp\t%Q0, %Q1 wz,wc\n    cmpsx\t%R0, %R1"
+  "cmp\\t%Q0, %Q1 wz,wc\n\\tcmpsx\\t%R0, %R1 wz,wc"
   [(set_attr "length" "8")
    (set_attr "type" "multi")
    (set_attr "conds" "set")]
@@ -1931,7 +1931,7 @@
 	 (match_operand:DI 0 "propeller_dst_operand" "rC")
 	 (match_operand:DI 1 "propeller_src_operand"	"rCI")))]
   ""
-  "cmp\t%Q0, %Q1 wz,wc\n    cmpx\t%R0, %R1"
+  "cmp\\t%Q0, %Q1 wz,wc\n\\tcmpx\\t%R0, %R1 wz,wc"
   [(set_attr "length" "8")
    (set_attr "type" "multi")
    (set_attr "conds" "set")]
@@ -1946,6 +1946,28 @@
         (match_op_dup 5
          [(match_operand:SI 1 "propeller_dst_operand" "")
           (match_operand:SI 2 "propeller_src_operand" "")]))
+   (set (pc)
+        (if_then_else
+              (match_operator 0 "ordered_comparison_operator"
+               [(match_dup 4)
+                (const_int 0)])
+              (label_ref (match_operand 3 "" ""))
+              (pc)))]
+  ""
+  "
+{
+  operands[4] = propeller_gen_compare_reg (GET_CODE (operands[0]),
+                                      operands[1], operands[2]);
+  operands[5] = gen_rtx_fmt_ee (COMPARE,
+                                GET_MODE (operands[4]),
+                                operands[1], operands[2]);
+}")
+
+(define_expand "cbranchdi4"
+  [(set (match_dup 4)
+        (match_op_dup 5
+         [(match_operand:DI 1 "propeller_dst_operand" "")
+          (match_operand:DI 2 "propeller_src_operand" "")]))
    (set (pc)
         (if_then_else
               (match_operator 0 "ordered_comparison_operator"
