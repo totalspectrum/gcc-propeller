@@ -3449,9 +3449,32 @@
   "xmov\t%0,%1 mov %2,%3"
 )
 
+(define_peephole
+ [
+  (set (match_operand:SI 0 "propeller_gpr_operand" "=r")
+       (match_operand:SI 1 "propeller_gpr_operand" "r"))
+  (set (match_operand:SI 2 "propeller_gpr_operand" "=r")
+       (match_operand:SI 3 "memory_operand" "m"))
+  ]
+  "TARGET_CMM"
+  "xmov\t%0,%1 rdlong %2,%3"
+)
+
 ;;
 ;; stack optimizations
 ;;
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; mov rn, sp -> leasp rn, #0
+;; 
+(define_peephole
+  [(set (match_operand:SI 0 "register_operand" "")
+        (reg:SI SP_REG))
+  ]
+  "TARGET_CMM"
+  "leasp\t%0, #0"
+)
 
 ;; combine pop + ret
 (define_peephole
