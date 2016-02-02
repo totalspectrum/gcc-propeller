@@ -3216,7 +3216,7 @@ fcache_block_ok (rtx_insn* first, rtx_insn* last, bool func_p, bool force_p)
               return false;
             }
         }
-      else if (NONJUMP_INSN_P (insn) && GET_CODE (PATTERN (insn)) == ASM_INPUT && !force_p)
+      else if (INSN_P (insn) && PATTERN(insn) && GET_CODE (PATTERN (insn)) == ASM_INPUT && !force_p)
 	{
 	  if (print_msgs)
 	    {
