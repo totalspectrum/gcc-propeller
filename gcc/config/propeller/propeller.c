@@ -100,6 +100,7 @@
 #include "tm-constrs.h"
 #include "rtl-iter.h"
 #include "sched-int.h"
+#include "sel-sched-ir.h"
 
 #ifndef GP_REG_NUM
 #define GP_REG_NUM 16 /* registers 0-15 are general purpose */
@@ -3215,6 +3216,14 @@ fcache_block_ok (rtx_insn* first, rtx_insn* last, bool func_p, bool force_p)
               return false;
             }
         }
+      else if (INSN_ASM_P (insn) && !force_p)
+	{
+	  if (print_msgs)
+	    {
+	      warning (0, "could not place function %s in fcache: it contains a user asm", current_function_name ());
+	    }
+	  return false;
+	}
       else if (JUMP_P (insn))
         {
           dest = get_jump_dest (insn);
